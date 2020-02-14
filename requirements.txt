@@ -1,0 +1,6 @@
+chromedriver-binary==80.0.3987.106.0
+selenium
+tqdm
+
+pylint
+autopep8
