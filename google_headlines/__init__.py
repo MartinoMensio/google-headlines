@@ -7,6 +7,9 @@ from selenium import webdriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.action_chains import ActionChains
 import chromedriver_binary  # Adds chromedriver binary to path
+import geckodriver_autoinstaller # geckodriver for firefox, looks more reliable in quit() and recreate
+
+geckodriver_autoinstaller.install()
 
 
 
@@ -100,7 +103,19 @@ def get_articles_url_from_coverage(driver, coverage_url):
         for u in tqdm.tqdm(google_urls):
             if u not in urls_resolved:
                 # print('visiting news', u)
-                driver.get(u)
+                try:
+                    driver.get(u)
+                except Exception as e:
+                    # RemoteDisconnected
+                    print('######## RETRYING', u, '##########')
+                    time.sleep(10)
+                    try:
+                        driver.quit()
+                        del driver
+                        driver = webdriver.Firefox()
+                        driver.get(u)
+                    except Exception:
+                        raise ValueError(u)
                 resolved_url = driver.current_url
                 urls_resolved[u] = resolved_url
             resolved.append(urls_resolved[u])
@@ -113,12 +128,12 @@ def get_articles_url_from_coverage(driver, coverage_url):
             
 
 def main():
-    driver = webdriver.Chrome()
+    driver = webdriver.Firefox()
     coverages_by_category = None
     # coverages_by_category = collect_coverages_by_category(driver)
     articles_url = get_articles_url_from_coverages(driver, coverages_by_category)
 
-    driver.close()
+    driver.quit()
 
 if __name__ == '__main__':
     main()
