@@ -16,3 +16,8 @@ pip install -r requirements.txt
 ```bash
 python -m google_headlines
 ```
+
+## Know issues
+
+- GDPR consent Washington Post
+- Chrome not closing all the times (Firefox gets stuck sometimes)

@@ -1,18 +1,50 @@
 import time
+import datetime
 import json
 import os
 import tqdm
+import psutil
+import typer
+from functools import wraps
+from multiprocessing.pool import ThreadPool
 from typing import List
 from selenium import webdriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.chrome.options import Options
 import chromedriver_binary  # Adds chromedriver binary to path
 import geckodriver_autoinstaller # geckodriver for firefox, looks more reliable in quit() and recreate
 
 geckodriver_autoinstaller.install()
 
+def with_webdriver(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        options = Options()
+        options.set_headless()
+        driver = webdriver.Chrome(options=options)
+        # driver.minimize_window()
+        kwargs['driver'] = driver
+        try:
+            return f(*args, **kwargs)
+        finally:
+            terminate_webdriver(driver)
+    return decorated
 
+def terminate_webdriver(driver):
+    ## experiment to see if it works
+    try:
+        p = psutil.Process(driver.service.process.pid)
+        pid = p.children(recursive=True)
+        driver.close()
+        driver.quit()
+        for p_one in pid:
+            print('terminating', p_one.pid)
+            p_one.terminate()
+    except Exception as e:
+        print(e)
 
+@with_webdriver
 def get_full_coverage_pages_by_category(driver):
     result = {}
 
@@ -45,28 +77,49 @@ def get_full_coverage_pages_by_category(driver):
 
 def collect_coverages_by_category(driver):
     full_coverage_by_category = get_full_coverage_pages_by_category(driver)
-    with open('data/full_coverage_by_category.json', 'w') as f:
+    with open('data/full_coverage_by_category_latest.json', 'w') as f:
         json.dump(full_coverage_by_category, f, indent=2)
-    return full_coverage_by_category
+    file_path = f'data/full_coverage_by_category_{datetime.datetime.utcnow().isoformat()}.json'
+    with open(file_path, 'w') as f:
+        json.dump(full_coverage_by_category, f, indent=2)
 
-def get_articles_url_from_coverages(driver, full_coverage_by_category):
+    return full_coverage_by_category, file_path
+
+def get_articles_url_from_coverages(full_coverage_by_category=None, file_path='data/full_coverage_by_category_latest.json'):
     result = {}
+    def single_wrapper(c):
+        result_one = get_articles_url_from_coverage_cached(c)
+        return c, result_one
+
+    pool = ThreadPool(4)
     if not full_coverage_by_category:
-        with open('data/full_coverage_by_category.json') as f:
+        with open(file_path) as f:
             full_coverage_by_category = json.load(f)
     for category, coverages in full_coverage_by_category.items():
         print('getting coverages in category', category)
-        for c in coverages:
-            result[c] = get_articles_url_from_coverage(driver, c)
+        for c, result_one in pool.imap_unordered(single_wrapper, coverages):
+            result[c] = result_one
     return result
 
-def get_articles_url_from_coverage(driver, coverage_url):
-    print('getting for url', coverage_url)
+def get_articles_url_from_coverage_cached(coverage_url):
     coverage_id = coverage_url.split('/')[-1].split('?')[0]
     coverage_file_name = f'data/cov_{coverage_id}.json'
+    # look if already there
     if os.path.isfile(coverage_file_name):
+        print('cached found for', coverage_url)
         with open(coverage_file_name) as f:
             return json.load(f)
+    # call the real function
+    result = get_articles_url_from_coverage(coverage_url)
+    # save results
+    with open(coverage_file_name, 'w') as f:
+        json.dump(result, f, indent=2)
+
+@with_webdriver
+def get_articles_url_from_coverage(coverage_url, **kwargs):
+    driver = kwargs['driver']
+    print('getting for url', coverage_url)
+
 
     groups_urls = {}
     driver.get(coverage_url)
@@ -109,32 +162,37 @@ def get_articles_url_from_coverage(driver, coverage_url):
                     # RemoteDisconnected
                     print('######## RETRYING', u, '##########')
                     time.sleep(10)
+                    terminate_webdriver(driver)
+                    del driver
+                    driver = webdriver.Chrome()
                     try:
-                        driver.quit()
-                        del driver
-                        driver = webdriver.Firefox()
                         driver.get(u)
                     except Exception:
                         raise ValueError(u)
                 resolved_url = driver.current_url
+                while 'https://news.google.com/articles/' in  resolved_url:
+                    print('Waiting extra time...')
+                    time.sleep(5)
+                    resolved_url = driver.current_url
                 urls_resolved[u] = resolved_url
             resolved.append(urls_resolved[u])
         groups_resolved[k] = resolved
 
-    # print(groups_resolved)
-    with open(coverage_file_name, 'w') as f:
-        json.dump(groups_resolved, f, indent=2)
     return groups_resolved
             
 
-def main():
-    driver = webdriver.Firefox()
+def main(collect_new_headlines=False):
     coverages_by_category = None
-    # coverages_by_category = collect_coverages_by_category(driver)
-    articles_url = get_articles_url_from_coverages(driver, coverages_by_category)
-
-    driver.quit()
+    file_path = None
+    if collect_new_headlines:
+        driver = webdriver.Chrome()
+        coverages_by_category, file_path = collect_coverages_by_category(driver)
+        terminate_webdriver(driver)
+        articles_url = get_articles_url_from_coverages(full_coverage_by_category=coverages_by_category, file_path=file_path)
+    else:
+        articles_url = get_articles_url_from_coverages(coverages_by_category)
+    # then ???
 
 if __name__ == '__main__':
-    main()
+    typer.run(main)
     
