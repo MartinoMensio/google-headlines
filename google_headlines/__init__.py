@@ -12,6 +12,7 @@ from selenium import webdriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import UnexpectedAlertPresentException, NoAlertPresentException
 import chromedriver_binary  # Adds chromedriver binary to path
 import geckodriver_autoinstaller # geckodriver for firefox, looks more reliable in quit() and recreate
 
@@ -20,10 +21,7 @@ geckodriver_autoinstaller.install()
 def with_webdriver(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        options = Options()
-        options.set_headless()
-        driver = webdriver.Chrome(options=options)
-        # driver.minimize_window()
+        driver = get_webdriver()
         kwargs['driver'] = driver
         try:
             return f(*args, **kwargs)
@@ -31,14 +29,28 @@ def with_webdriver(f):
             terminate_webdriver(driver)
     return decorated
 
+def get_webdriver():
+    options = Options()
+    options.set_headless()
+    # https://w3c.github.io/webdriver/#dfn-dismissed
+    # options.set_capability('unhandledPromptBehaviour', 'dismiss')
+    # options.set_capability('unexpectedAlertBehaviour', 'ignore')
+    # capabilities.CHROME.['unexpectedAlertBehaviour'] = 'accept'
+    driver = webdriver.Chrome(options=options)
+    # driver.minimize_window()
+    return driver
+
 def terminate_webdriver(driver):
     ## experiment to see if it works
     try:
-        p = psutil.Process(driver.service.process.pid)
-        pid = p.children(recursive=True)
+        if driver.service.process:
+            p = psutil.Process(driver.service.process.pid)
+            pids = p.children(recursive=True)
+        else:
+            pids = []
         driver.close()
         driver.quit()
-        for p_one in pid:
+        for p_one in pids:
             print('terminating', p_one.pid)
             p_one.terminate()
     except Exception as e:
@@ -164,12 +176,20 @@ def get_articles_url_from_coverage(coverage_url, **kwargs):
                     time.sleep(10)
                     terminate_webdriver(driver)
                     del driver
-                    driver = webdriver.Chrome()
+                    driver = get_webdriver()
                     try:
                         driver.get(u)
                     except Exception:
                         raise ValueError(u)
-                resolved_url = driver.current_url
+                try:
+                    resolved_url = driver.current_url
+                except UnexpectedAlertPresentException:
+                    try:
+                        driver.switch_to.alert.dismiss()
+                    except NoAlertPresentException:
+                        # this is crazy, but happens
+                        pass
+                    resolved_url = driver.current_url
                 while 'https://news.google.com/articles/' in  resolved_url:
                     print('Waiting extra time...')
                     time.sleep(5)
@@ -185,7 +205,7 @@ def main(collect_new_headlines=False):
     coverages_by_category = None
     file_path = None
     if collect_new_headlines:
-        driver = webdriver.Chrome()
+        driver = get_webdriver()
         coverages_by_category, file_path = collect_coverages_by_category(driver)
         terminate_webdriver(driver)
         articles_url = get_articles_url_from_coverages(full_coverage_by_category=coverages_by_category, file_path=file_path)
