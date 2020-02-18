@@ -13,8 +13,16 @@ pip install -r requirements.txt
 
 ## Run
 
+Get headlines
+
 ```bash
 python -m google_headlines
+```
+
+Search URLs of articles
+
+'''bash
+python -m google_headlines.google_search ../narrative-comparison/data/search_requests.json ../narrative-comparison/data/search_responses.json
 ```
 
 ## Know issues
