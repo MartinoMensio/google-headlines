@@ -9,6 +9,7 @@ from functools import wraps
 from multiprocessing.pool import ThreadPool
 from typing import List
 from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.chrome.options import Options
@@ -29,9 +30,10 @@ def with_webdriver(f):
             terminate_webdriver(driver)
     return decorated
 
-def get_webdriver():
+def get_webdriver(headless=True):
     options = Options()
-    options.set_headless()
+    if headless:
+        options.set_headless()
     # https://w3c.github.io/webdriver/#dfn-dismissed
     # options.set_capability('unhandledPromptBehaviour', 'dismiss')
     # options.set_capability('unexpectedAlertBehaviour', 'ignore')
@@ -147,7 +149,13 @@ def get_articles_url_from_coverage(coverage_url, **kwargs):
             group_title = 'All coverage'
             articles = driver.find_elements_by_xpath('//main/div[@data-n-ham]/article/a')
         else:
-            group_title_el: WebElement = group.find_element_by_css_selector('div[data-n-ham]')
+            try:
+                group_title_el: WebElement = group.find_element_by_css_selector('div[data-n-ham]')
+            except NoSuchElementException as e:
+                print('EXCEPTION NoSuchElementException for', coverage_url)
+                # e.g. https://news.google.com/stories/CAAqOQgKIjNDQklTSURvSmMzUnZjbmt0TXpZd1NoTUtFUWlpeDVDSmo0QU1FZHRwSGxaR0VPQXZLQUFQAQ?hl=en-GB&gl=GB&ceid=GB%3Aen
+                # just skip the group
+                continue
             group_title = group_title_el.get_attribute('innerText').strip()
             articles = group.find_elements_by_css_selector('div article a')
         links = [el.get_attribute('href') for el in articles]
@@ -190,10 +198,14 @@ def get_articles_url_from_coverage(coverage_url, **kwargs):
                         # this is crazy, but happens
                         pass
                     resolved_url = driver.current_url
+                wait_cnt = 0
                 while 'https://news.google.com/articles/' in  resolved_url:
+                    if wait_cnt > 5:
+                        raise ValueError('Waiting too much', driver.current_url)
                     print('Waiting extra time...')
                     time.sleep(5)
                     resolved_url = driver.current_url
+                    wait_cnt += 1
                 urls_resolved[u] = resolved_url
             resolved.append(urls_resolved[u])
         groups_resolved[k] = resolved
