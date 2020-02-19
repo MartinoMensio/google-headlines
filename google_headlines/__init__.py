@@ -9,10 +9,12 @@ from functools import wraps
 from multiprocessing.pool import ThreadPool
 from typing import List
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, StaleElementReferenceException
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.options import Options as ChromeOptions
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.common.exceptions import UnexpectedAlertPresentException, NoAlertPresentException
 import chromedriver_binary  # Adds chromedriver binary to path
 import geckodriver_autoinstaller # geckodriver for firefox, looks more reliable in quit() and recreate
@@ -30,15 +32,15 @@ def with_webdriver(f):
             terminate_webdriver(driver)
     return decorated
 
-def get_webdriver(headless=True):
-    options = Options()
-    if headless:
-        options.set_headless()
-    # https://w3c.github.io/webdriver/#dfn-dismissed
-    # options.set_capability('unhandledPromptBehaviour', 'dismiss')
-    # options.set_capability('unexpectedAlertBehaviour', 'ignore')
-    # capabilities.CHROME.['unexpectedAlertBehaviour'] = 'accept'
-    driver = webdriver.Chrome(options=options)
+def get_webdriver(headless=True, browser='firefox'):
+    if browser == 'chrome':
+        options = ChromeOptions()
+        options.headless = headless
+        driver = webdriver.Chrome(options=options)
+    elif browser == 'firefox':
+        options = FirefoxOptions()
+        options.headless = headless
+        driver = webdriver.Firefox(options=options)
     # driver.minimize_window()
     return driver
 
@@ -58,7 +60,6 @@ def terminate_webdriver(driver):
     except Exception as e:
         print(e)
 
-@with_webdriver
 def get_full_coverage_pages_by_category(driver):
     result = {}
 
@@ -67,7 +68,7 @@ def get_full_coverage_pages_by_category(driver):
     more_headlines_el.click()
     time.sleep(5)
     categories_el : List[WebElement] = driver.find_elements_by_xpath('//div[@data-scrollbar="true"]/div')
-    print(categories_el)
+    print('found', len(categories_el), 'categories')
 
     for c in categories_el:
         # get the category name
@@ -83,6 +84,9 @@ def get_full_coverage_pages_by_category(driver):
         # wait async loading
         time.sleep(5)
         full_coverages: List[WebElement] = driver.find_elements_by_partial_link_text('View Full coverage')
+        if not full_coverages:
+            # just icon without the link text
+            full_coverages = driver.find_elements_by_xpath('//a[@aria-label="Get perspectives and context"]')
         # print([el.get_attribute('href') for el in full_coverages])
         print('category', category, len(full_coverages), 'full coverages')
         result[category] = [el.get_attribute('href') for el in full_coverages]
@@ -105,7 +109,7 @@ def get_articles_url_from_coverages(full_coverage_by_category=None, file_path='d
         result_one = get_articles_url_from_coverage_cached(c)
         return c, result_one
 
-    pool = ThreadPool(4)
+    pool = ThreadPool(1)
     if not full_coverage_by_category:
         with open(file_path) as f:
             full_coverage_by_category = json.load(f)
@@ -120,7 +124,7 @@ def get_articles_url_from_coverage_cached(coverage_url):
     coverage_file_name = f'data/cov_{coverage_id}.json'
     # look if already there
     if os.path.isfile(coverage_file_name):
-        print('cached found for', coverage_url)
+        # print('cached found for', coverage_url)
         with open(coverage_file_name) as f:
             return json.load(f)
     # call the real function
@@ -170,54 +174,84 @@ def get_articles_url_from_coverage(coverage_url, **kwargs):
     # resolve just once, even if it appears multiple times in different groups
     urls_resolved = {}
     # now get the real links to the articles
+    # with short timeout
+    driver.set_page_load_timeout(5)
     for k, google_urls in groups_urls.items():
         print('visiting news for group', k)
         resolved = []
         for u in tqdm.tqdm(google_urls):
             if u not in urls_resolved:
-                # print('visiting news', u)
-                try:
-                    driver.get(u)
-                except Exception as e:
-                    # RemoteDisconnected
-                    print('######## RETRYING', u, '##########')
-                    time.sleep(10)
-                    terminate_webdriver(driver)
-                    del driver
-                    driver = get_webdriver()
-                    try:
-                        driver.get(u)
-                    except Exception:
-                        raise ValueError(u)
-                try:
-                    resolved_url = driver.current_url
-                except UnexpectedAlertPresentException:
-                    try:
-                        driver.switch_to.alert.dismiss()
-                    except NoAlertPresentException:
-                        # this is crazy, but happens
-                        pass
-                    resolved_url = driver.current_url
-                wait_cnt = 0
-                while 'https://news.google.com/articles/' in  resolved_url:
-                    if wait_cnt > 5:
-                        raise ValueError('Waiting too much', driver.current_url)
-                    print('Waiting extra time...')
-                    time.sleep(5)
-                    resolved_url = driver.current_url
-                    wait_cnt += 1
+                resolved_url = resolve_url(driver, u)
                 urls_resolved[u] = resolved_url
             resolved.append(urls_resolved[u])
         groups_resolved[k] = resolved
 
     return groups_resolved
+
+def resolve_url(driver, u):
+    """This is tricky, let's resolve a google article url"""
+    # print('visiting news', u)
+    try:
+        driver.get(u)
+    except TimeoutException:
+        print('timed out at', driver.current_url)
+    except Exception as e:
+        # RemoteDisconnected
+        raise e
+        print('######## RETRYING', u, '##########')
+        # time.sleep(10)
+        terminate_webdriver(driver)
+        del driver
+        driver = get_webdriver()
+        try:
+            driver.get(u)
+        except Exception:
+            raise ValueError(u)
+    try:
+        resolved_url = driver.current_url
+    except UnexpectedAlertPresentException:
+        try:
+            driver.switch_to.alert.dismiss()
+        except NoAlertPresentException:
+            # this is crazy, but happens
+            pass
+        resolved_url = driver.current_url
+    # wait_cnt = 0
+    # while 'https://news.google.com/articles/' in resolved_url:
+    #     if wait_cnt > 5:
+    #         raise ValueError('Waiting too much', driver.current_url)
+    #     if wait_cnt == 2 or wait_cnt == 4:
+    #         # firefox sometimes gets stuck
+    #         driver.get(u)
+    #     print('Waiting extra time...')
+    #     time.sleep(5)
+    #     resolved_url = driver.current_url
+    #     wait_cnt += 1
+
+    # avoid selenium.common.exceptions.StaleElementReferenceException
+    ActionChains(driver).send_keys(Keys.ESCAPE)
+    if 'https://news.google.com/articles/' in resolved_url:
+        try:
+            # # Firefox is way faster because this happens a lot (it thinks the page is loaded) so we don't need to go to the destination page
+            resolved_url = driver.find_element_by_xpath('//a[@rel="nofollow"]').get_attribute('href')
+            print('still on Google News, but the url is', resolved_url)
+        except StaleElementReferenceException:
+            # if it is stale, the driver.current_url now is the new page
+            resolved_url = driver.current_url
+            print('stale catched at', resolved_url)
+        except NoSuchElementException:
+            # and also in this case
+            resolved_url = driver.current_url
+            print('NoSuchElement at', resolved_url)
+
+    return resolved_url
             
 
-def main(collect_new_headlines=False):
+def main(collect_new_headlines=True):
     coverages_by_category = None
     file_path = None
     if collect_new_headlines:
-        driver = get_webdriver()
+        driver = get_webdriver(headless=False, browser='chrome')
         coverages_by_category, file_path = collect_coverages_by_category(driver)
         terminate_webdriver(driver)
         articles_url = get_articles_url_from_coverages(full_coverage_by_category=coverages_by_category, file_path=file_path)
