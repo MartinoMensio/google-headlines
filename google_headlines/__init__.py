@@ -8,6 +8,7 @@ import typer
 from functools import wraps
 from multiprocessing.pool import ThreadPool
 from typing import List
+import urllib.parse as urlparse
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException, TimeoutException, StaleElementReferenceException
 from selenium.webdriver.remote.webelement import WebElement
@@ -244,10 +245,14 @@ def resolve_url(driver, u):
             resolved_url = driver.current_url
             print('NoSuchElement at', resolved_url)
 
+    # fix for washingtonpost gdpr
+    if resolved_url.startswith('https://www.washingtonpost.com/gdpr-consent/'):
+        resolved_url = urlparse.parse_qs(urlparse.urlparse(resolved_url).query)['next_url'][0]
+
     return resolved_url
             
 
-def main(collect_new_headlines=True):
+def main(collect_new_headlines=False):
     coverages_by_category = None
     file_path = None
     if collect_new_headlines:
