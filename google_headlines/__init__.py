@@ -98,7 +98,7 @@ def collect_coverages_by_category(driver):
     full_coverage_by_category = get_full_coverage_pages_by_category(driver)
     with open('data/full_coverage_by_category_latest.json', 'w') as f:
         json.dump(full_coverage_by_category, f, indent=2)
-    file_path = f'data/full_coverage_by_category_{datetime.datetime.utcnow().strftime("%Y-%d-%m")}.json'
+    file_path = f'data/full_coverage_by_category_{datetime.datetime.utcnow().strftime("%Y-%m-%d")}.json'
     with open(file_path, 'w') as f:
         json.dump(full_coverage_by_category, f, indent=2)
 
