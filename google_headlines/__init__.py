@@ -8,6 +8,7 @@ import typer
 from functools import wraps
 from multiprocessing.pool import ThreadPool
 from typing import List
+from collections import defaultdict
 import urllib.parse as urlparse
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException, TimeoutException, StaleElementReferenceException, WebDriverException
@@ -94,34 +95,42 @@ def get_full_coverage_pages_by_category(driver):
     
     return result
 
+def get_today():
+    return datetime.datetime.utcnow().strftime("%Y-%m-%d")
+
 def collect_coverages_by_category(driver):
     full_coverage_by_category = get_full_coverage_pages_by_category(driver)
     with open('data/full_coverage_by_category_latest.json', 'w') as f:
         json.dump(full_coverage_by_category, f, indent=2)
-    file_path = f'data/full_coverage_by_category_{datetime.datetime.utcnow().strftime("%Y-%m-%d")}.json'
+    date = get_today()
+    file_path = f'data/full_coverage_by_category_{date}.json'
     with open(file_path, 'w') as f:
         json.dump(full_coverage_by_category, f, indent=2)
 
-    return full_coverage_by_category, file_path
+    return full_coverage_by_category
 
-def get_articles_url_from_coverages(full_coverage_by_category=None, file_path='data/full_coverage_by_category_latest.json'):
+def get_articles_url_from_coverages(full_coverage_by_category=None, date='latest'):
     result = {}
     def single_wrapper(c):
         result_one = get_articles_url_from_coverage_cached(c)
         return c, result_one
 
-    pool = ThreadPool(1)
+    file_path = f'data/full_coverage_by_category_{date}.json'
     if not full_coverage_by_category:
         with open(file_path) as f:
             full_coverage_by_category = json.load(f)
+    pool = ThreadPool(1)
     for category, coverages in full_coverage_by_category.items():
         print('getting coverages in category', category)
         for c, result_one in pool.imap_unordered(single_wrapper, coverages):
             result[c] = result_one
     return result
 
+def get_story_id_from_url(url):
+    return url.split('/')[-1].split('?')[0]
+
 def get_articles_url_from_coverage_cached(coverage_url):
-    coverage_id = coverage_url.split('/')[-1].split('?')[0]
+    coverage_id = get_story_id_from_url(coverage_url)
     coverage_file_name = f'data/cov_{coverage_id}.json'
     # look if already there
     if os.path.isfile(coverage_file_name):
@@ -261,19 +270,40 @@ def resolve_url(driver, u):
         resolved_url = urlparse.parse_qs(urlparse.urlparse(resolved_url).query)['next_url'][0]
 
     return resolved_url
-            
 
-def main(collect_new_headlines=False):
+def create_headline_file(date, file_path, out_path):
+    with open(file_path) as f:
+        by_category = json.load(f)
+
+    result = defaultdict(list)
+
+    for category_name, category_urls in by_category.items():
+        for category_url in category_urls:
+            url_id = get_story_id_from_url(category_url)
+            with open(f'data/cov_{url_id}.json') as f:
+                urls_by_type = json.load(f)
+            result[category_name].append({'url': category_url, 'articles': urls_by_type})
+    
+    with open(out_path, 'w') as f:
+        json.dump(result, f, indent=2)
+    return result
+
+def main(collect_new_headlines=False, date='2020-03-10'):
     coverages_by_category = None
+    # date = get_today()
     file_path = None
     if collect_new_headlines:
+        date = get_today()
         driver = get_webdriver(headless=False, browser='chrome')
-        coverages_by_category, file_path = collect_coverages_by_category(driver)
+        coverages_by_category = collect_coverages_by_category(driver)
         terminate_webdriver(driver)
-        articles_url = get_articles_url_from_coverages(full_coverage_by_category=coverages_by_category, file_path=file_path)
+        articles_url = get_articles_url_from_coverages(full_coverage_by_category=coverages_by_category, date=date)
     else:
-        articles_url = get_articles_url_from_coverages(coverages_by_category)
-    # then ???
+        # date = '2020-02-28'
+        file_path = f'data/full_coverage_by_category_{date}.json'
+        articles_url = get_articles_url_from_coverages(coverages_by_category, date)
+    # then put all together
+    create_headline_file(date, file_path, out_path=f'data/headlines_{date}.json')
 
 if __name__ == '__main__':
     typer.run(main)
