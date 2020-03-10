@@ -10,7 +10,7 @@ from multiprocessing.pool import ThreadPool
 from typing import List
 import urllib.parse as urlparse
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, TimeoutException, StaleElementReferenceException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, StaleElementReferenceException, WebDriverException
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
@@ -98,7 +98,7 @@ def collect_coverages_by_category(driver):
     full_coverage_by_category = get_full_coverage_pages_by_category(driver)
     with open('data/full_coverage_by_category_latest.json', 'w') as f:
         json.dump(full_coverage_by_category, f, indent=2)
-    file_path = f'data/full_coverage_by_category_{datetime.datetime.utcnow().isoformat()}.json'
+    file_path = f'data/full_coverage_by_category_{datetime.datetime.utcnow().strftime("%Y-%d-%m")}.json'
     with open(file_path, 'w') as f:
         json.dump(full_coverage_by_category, f, indent=2)
 
@@ -196,18 +196,29 @@ def resolve_url(driver, u):
         driver.get(u)
     except TimeoutException:
         print('timed out at', driver.current_url)
+    except WebDriverException as e:
+        message = e.msg
+        # firefox network error page
+        if message.startswith('Reached error page: '):
+            error_url = message.replace('Reached Error Page: ', '')
+            error_url = error_url.replace('about:neterror', '')
+            print(error_url)
+            resolved_url = urlparse.parse_qs(error_url)['u'][0]
+            # raise ValueError(resolve_url)
+        else:
+            raise e
     except Exception as e:
         # RemoteDisconnected
         raise e
-        print('######## RETRYING', u, '##########')
-        # time.sleep(10)
-        terminate_webdriver(driver)
-        del driver
-        driver = get_webdriver()
-        try:
-            driver.get(u)
-        except Exception:
-            raise ValueError(u)
+        # print('######## RETRYING', u, '##########')
+        # # time.sleep(10)
+        # terminate_webdriver(driver)
+        # del driver
+        # driver = get_webdriver()
+        # try:
+        #     driver.get(u)
+        # except Exception:
+        #     raise ValueError(u)
     try:
         resolved_url = driver.current_url
     except UnexpectedAlertPresentException:
