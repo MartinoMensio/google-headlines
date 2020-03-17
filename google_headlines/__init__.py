@@ -11,7 +11,7 @@ from typing import List
 from collections import defaultdict
 import urllib.parse as urlparse
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, TimeoutException, StaleElementReferenceException, WebDriverException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, StaleElementReferenceException, WebDriverException, InsecureCertificateException
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
@@ -205,6 +205,8 @@ def resolve_url(driver, u):
         driver.get(u)
     except TimeoutException:
         print('timed out at', driver.current_url)
+    except InsecureCertificateException:
+        print('InsecureCertificateException at ', driver.current_url)
     except WebDriverException as e:
         message = e.msg
         # firefox network error page
@@ -288,7 +290,7 @@ def create_headline_file(date, file_path, out_path):
         json.dump(result, f, indent=2)
     return result
 
-def main(collect_new_headlines=False, date='2020-03-10'):
+def main(collect_new_headlines=False, date='2020-03-17'):
     coverages_by_category = None
     # date = get_today()
     file_path = None
