@@ -5,6 +5,8 @@ import os
 import tqdm
 import psutil
 import typer
+import requests
+import re
 from functools import wraps
 from multiprocessing.pool import ThreadPool
 from typing import List
@@ -186,19 +188,59 @@ def get_articles_url_from_coverage(coverage_url, **kwargs):
     # now get the real links to the articles
     # with short timeout
     driver.set_page_load_timeout(5)
+    single_wrapper = lambda u: (u, resolve_url(u))
+    pool = ThreadPool(8)
     for k, google_urls in groups_urls.items():
         print('visiting news for group', k)
         resolved = []
-        for u in tqdm.tqdm(google_urls):
-            if u not in urls_resolved:
-                resolved_url = resolve_url(driver, u)
-                urls_resolved[u] = resolved_url
-            resolved.append(urls_resolved[u])
+        for u, resolved_url in tqdm.tqdm(pool.imap(single_wrapper, google_urls), total=len(google_urls)):
+        # for u in tqdm.tqdm(google_urls):
+        #     if u not in urls_resolved:
+        #         resolved_url = resolve_url(driver, u)
+        #         urls_resolved[u] = resolved_url
+            resolved.append(resolved_url)
         groups_resolved[k] = resolved
 
     return groups_resolved
 
-def resolve_url(driver, u):
+def resolve_url(u, tentatives=3):
+    # response = requests.head(u, allow_redirects=True)
+    # # response.raise_for_status()
+    # resolved_url = response.url
+    if tentatives == 0:
+        raise ValueError(u)
+    result = u
+    try:
+        res = requests.head(u, allow_redirects=True, timeout=5)
+        result = res.url
+    except requests.exceptions.Timeout as e:
+        # website dead, return the last one
+        print(e)
+        result = e.request.url
+    except requests.exceptions.InvalidSchema as e:
+        # something like a ftp link that is not supported by requests
+        print(e)
+        error_str = str(e)
+        found_url = re.sub("No connection adapters were found for '([^']*)'", r'\1', error_str)
+        result = found_url
+    except requests.exceptions.RequestException as e:
+        print(e)
+        # other exceptions such as SSLError, ConnectionError, TooManyRedirects
+        if e.request and e.request.url:
+            result = e.request.url
+        else:
+            # something is really wrong
+            raise e
+    # except Exception as e:
+    #     # something like http://ow.ly/yuFE8 that points to .
+    #     print('error for',url)
+
+    if 'https://news.google.com/articles/' in result:
+        print('trying again...')
+        return resolve_url(u, tentatives=tentatives-1)
+    return result
+
+def resolve_url_old(driver, u):
     """This is tricky, let's resolve a google article url"""
     # print('visiting news', u)
     try:

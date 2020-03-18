@@ -4,6 +4,7 @@ selenium
 tqdm
 psutil
 typer
+requests
 
 pylint
 autopep8
