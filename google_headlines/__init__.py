@@ -7,6 +7,7 @@ import psutil
 import typer
 import requests
 import re
+import shutil
 from functools import wraps
 from multiprocessing.pool import ThreadPool
 from typing import List
@@ -102,25 +103,21 @@ def get_today():
 
 def collect_coverages_by_category(driver):
     full_coverage_by_category = get_full_coverage_pages_by_category(driver)
-    with open('data/full_coverage_by_category_latest.json', 'w') as f:
-        json.dump(full_coverage_by_category, f, indent=2)
     date = get_today()
     file_path = f'data/full_coverage_by_category_{date}.json'
     with open(file_path, 'w') as f:
         json.dump(full_coverage_by_category, f, indent=2)
 
-    return full_coverage_by_category
+    return full_coverage_by_category, file_path
 
-def get_articles_url_from_coverages(full_coverage_by_category=None, date='latest'):
+def get_articles_url_from_coverages(full_coverage_by_category, date):
     result = {}
     def single_wrapper(c):
         result_one = get_articles_url_from_coverage_cached(c)
         return c, result_one
 
     file_path = f'data/full_coverage_by_category_{date}.json'
-    if not full_coverage_by_category:
-        with open(file_path) as f:
-            full_coverage_by_category = json.load(f)
+
     pool = ThreadPool(1)
     for category, coverages in full_coverage_by_category.items():
         print('getting coverages in category', category)
@@ -133,7 +130,9 @@ def get_story_id_from_url(url):
 
 def get_articles_url_from_coverage_cached(coverage_url):
     coverage_id = get_story_id_from_url(coverage_url)
-    coverage_file_name = f'data/cov_{coverage_id}.json'
+    coverage_file_name = f'data/tmp/cov_{coverage_id}.json'
+    if not os.path.isdir('data/tmp'):
+        os.makedirs('data/tmp')
     # look if already there
     if os.path.isfile(coverage_file_name):
         # print('cached found for', coverage_url)
@@ -324,7 +323,7 @@ def create_headline_file(date, file_path, out_path):
     for category_name, category_urls in by_category.items():
         for category_url in category_urls:
             url_id = get_story_id_from_url(category_url)
-            with open(f'data/cov_{url_id}.json') as f:
+            with open(f'data/tmp/cov_{url_id}.json') as f:
                 urls_by_type = json.load(f)
             result[category_name].append({'url': category_url, 'articles': urls_by_type})
     
@@ -332,22 +331,52 @@ def create_headline_file(date, file_path, out_path):
         json.dump(result, f, indent=2)
     return result
 
-def main(collect_new_headlines=False, date='2020-03-17'):
-    coverages_by_category = None
-    # date = get_today()
-    file_path = None
+def main(force=False, date=get_today(), clean=False):
+    # initial file
+    file_path = f'data/full_coverage_by_category_{date}.json'
+    # final file
+    headline_file_path = f'data/headlines_{date}.json'
+
+    collect_new_headlines = False
+
+    if clean:
+        # cleanup fragments files
+        shutil.rmtree('data/tmp')
+        return
+
+    if force:
+        if date != get_today():
+            print('Too late, you can\'t travel in time (for now)!')
+            return
+        print(f'Recollecting everything today {date}...')
+        collect_new_headlines = True
+    elif os.path.isfile(headline_file_path):
+        # already done
+        print(f'Already done for date {date}, use the force parameter to do again')
+        return
+    else:
+        # not yet
+        if os.path.isfile(file_path):
+            # initial headlines file is there, so continue
+            print('Initial headlines file found, resuming...')
+        else:
+            # nothing yet, collect new
+            collect_new_headlines = True
+
     if collect_new_headlines:
+        print('Collecting new headlines...')
         date = get_today()
         driver = get_webdriver(headless=False, browser='chrome')
-        coverages_by_category = collect_coverages_by_category(driver)
+        coverages_by_category, file_path = collect_coverages_by_category(driver)
         terminate_webdriver(driver)
-        articles_url = get_articles_url_from_coverages(full_coverage_by_category=coverages_by_category, date=date)
     else:
-        # date = '2020-02-28'
-        file_path = f'data/full_coverage_by_category_{date}.json'
-        articles_url = get_articles_url_from_coverages(coverages_by_category, date)
+        with open(file_path) as f:
+            coverages_by_category = json.load(f)
+    
+    print(f'Collecting headlines urls, date={date}. Results will be at {headline_file_path}')
+    articles_url = get_articles_url_from_coverages(coverages_by_category, date)
     # then put all together
-    create_headline_file(date, file_path, out_path=f'data/headlines_{date}.json')
+    create_headline_file(date, file_path, out_path=headline_file_path)
 
 if __name__ == '__main__':
     typer.run(main)
