@@ -5,6 +5,9 @@ import datetime
 def get_today():
     return datetime.datetime.utcnow().strftime("%Y-%m-%d")
 
+def get_time():
+    return datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+
 def save_json(file_path, content):
     with open(file_path, 'w') as f:
         json.dump(content, f, indent=2)

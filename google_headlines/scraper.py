@@ -29,6 +29,9 @@ import geckodriver_autoinstaller # geckodriver for firefox, looks more reliable 
 geckodriver_autoinstaller.install()
 
 
+#############################################################################
+# webdriver utilities
+#############################################################################
 
 def with_webdriver(f):
     @wraps(f)
@@ -69,6 +72,45 @@ def terminate_webdriver(driver):
     except Exception as e:
         print(e)
 
+
+def select_stories_in_section_from_url(url, driver=None):
+    """From a url that matches `/topics/{topic_id}(/sections/{section_id})?` retrieves a list of `/stories{story_id}`.
+
+    `driver` argument is optional. If provided it will be used, otherwise a new driver will be used
+    """
+    # check if url is matching
+    if not url.startswith('https://news.google.com/topics/'):
+        raise ValueError(url)
+    if not driver:
+        driver = get_webdriver(headless=False)
+        is_new_driver = True
+        driver.get('http://networkcheck.kde.org/')
+        time.sleep(1)
+        driver.get(url)
+    else:
+        is_new_driver = False
+    result = select_stories_in_section(driver)
+    print(len(result))
+    if is_new_driver:
+        terminate_webdriver(driver)
+    return result
+    
+
+
+def select_stories_in_section(driver):
+    """From the current page `/topics/{topic_id}(/sections/{section_id})?` retrieves a list of `/stories{story_id}`"""
+
+    # get all the links in the page
+    links = [el.get_attribute('href') for el in driver.find_elements_by_tag_name('a')]
+    # filter the ones that point to stories. This selection is robust to any language
+    links = [el for el in links if (el and el.startswith('https://news.google.com/stories/'))]
+    print('all', len(links))
+    links = list(dict.fromkeys(links).keys())
+    print('unique', len(links))
+    
+    return links
+
+
 def get_full_coverage_pages_by_category(driver):
     result = {}
 
@@ -76,35 +118,30 @@ def get_full_coverage_pages_by_category(driver):
     more_headlines_el = driver.find_element_by_link_text('More Headlines')
     more_headlines_el.click()
     time.sleep(5)
-    categories_el : List[WebElement] = driver.find_elements_by_xpath('//div[@data-scrollbar="true"]/div')
-    print('found', len(categories_el), 'categories')
+    index_update(driver.current_url)
+    sections_el : List[WebElement] = driver.find_elements_by_xpath('//div[@data-scrollbar="true"]/div')
+    print('found', len(sections_el), 'sections')
 
-    for c in categories_el:
-        # get the category name
-        category = c.get_attribute('innerText').strip()
-        if not category:
-            # something is wrong (dummy/clutter categories)
+    sections_urls = {}
+    for c in sections_el:
+        # get the section name
+        section_name = c.get_attribute('innerText').strip()
+        if not section_name:
+            # something is wrong (dummy/clutter sections)
             continue
         # scroll horizontally to the element
         actions = ActionChains(driver)
         actions.move_to_element(c).perform()
-        # go on the category
+        # go on the section
         c.click()
-        # wait async loading
-        time.sleep(5)
+        sections_urls[section_name] = driver.current_url
 
-        # "full coverage" button
-        full_coverages1: List[WebElement] = driver.find_elements_by_partial_link_text('View Full coverage')
-        # just icon without the link text
-        full_coverages2 = driver.find_elements_by_xpath('//a[@aria-label="Get perspectives and context"]')
-        # merge the two types
-        full_coverages = full_coverages1 + full_coverages2
+    for section_name, section_url in sections_urls.items():
+        # this is awful but to have a clean DOM, use a different instance of driver for every section
+        section_stories = select_stories_in_section_from_url(section_url)
+        print(f'section {section_name} has {len(section_stories)} stories')
         
-        # print([el.get_attribute('href') for el in full_coverages])
-        print('category', category, len(full_coverages), 'full coverages')
-        links = [el.get_attribute('href') for el in full_coverages]
-        # ordered set, removing duplicates but keeping order
-        result[category] = list(dict.fromkeys(links).keys())
+        result[section_name] = section_stories
     
     return result
 
@@ -338,6 +375,20 @@ def create_headline_file(date, file_path, out_path):
     utils.save_json(out_path, result)
     return result
 
+def index_update(url):
+    index_path = 'data/index.json'
+    time = utils.get_time()
+    if os.path.isfile(index_path):
+        index = utils.read_json(index_path)
+    else: 
+        index = []
+    if any(el['url'] == url for el in index):
+        print('already in the index')
+        return
+    index.append({'url': url, 'time': time})
+    utils.save_json(index_path, index)
+
+
 def main(force=False, date=utils.get_today()):
     # initial file
     file_path = f'data/full_coverage_by_category_{date}.json'
@@ -368,7 +419,7 @@ def main(force=False, date=utils.get_today()):
     if collect_new_headlines:
         print('Collecting new headlines...')
         date = utils.get_today()
-        driver = get_webdriver(headless=False, browser='chrome')
+        driver = get_webdriver(headless=False, browser='firefox')
         coverages_by_category, file_path = collect_coverages_by_category(driver)
         terminate_webdriver(driver)
     else:
