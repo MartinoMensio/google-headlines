@@ -88,13 +88,19 @@ def get_full_coverage_pages_by_category(driver):
         c.click()
         # wait async loading
         time.sleep(5)
-        full_coverages: List[WebElement] = driver.find_elements_by_partial_link_text('View Full coverage')
-        if not full_coverages:
-            # just icon without the link text
-            full_coverages = driver.find_elements_by_xpath('//a[@aria-label="Get perspectives and context"]')
+
+        # "full coverage" button
+        full_coverages1: List[WebElement] = driver.find_elements_by_partial_link_text('View Full coverage')
+        # just icon without the link text
+        full_coverages2 = driver.find_elements_by_xpath('//a[@aria-label="Get perspectives and context"]')
+        # merge the two types
+        full_coverages = full_coverages1 + full_coverages2
+        
         # print([el.get_attribute('href') for el in full_coverages])
         print('category', category, len(full_coverages), 'full coverages')
-        result[category] = [el.get_attribute('href') for el in full_coverages]
+        links = [el.get_attribute('href') for el in full_coverages]
+        # ordered set, removing duplicates but keeping order
+        result[category] = list(dict.fromkeys(links).keys())
     
     return result
 
@@ -118,7 +124,7 @@ def get_articles_url_from_coverages(full_coverage_by_category, date):
 
     file_path = f'data/full_coverage_by_category_{date}.json'
 
-    pool = ThreadPool(1)
+    pool = ThreadPool(4)
     for category, coverages in full_coverage_by_category.items():
         print('getting coverages in category', category)
         for c, result_one in pool.imap_unordered(single_wrapper, coverages):
