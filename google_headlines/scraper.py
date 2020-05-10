@@ -178,8 +178,6 @@ def get_story_id_from_url(url):
 def get_articles_url_from_coverage_cached(coverage_url):
     coverage_id = get_story_id_from_url(coverage_url)
     coverage_file_name = f'data/tmp/cov_{coverage_id}.json'
-    if not os.path.isdir('data/tmp'):
-        os.makedirs('data/tmp')
     # look if already there
     if os.path.isfile(coverage_file_name):
         # print('cached found for', coverage_url)
@@ -254,6 +252,9 @@ def resolve_url(u, tentatives=3):
     # # response.raise_for_status()
     # resolved_url = response.url
     if tentatives == 0:
+        # india today https://news.google.com/articles/CAIiENW48loW7b7nJFQVflFbLjYqGQgEKhAIACoHCAowot7cCjD8xM4BMN7VhgI?hl=en-GB&gl=GB&ceid=GB%3Aen
+        if u == 'https://news.google.com/articles/CAIiENW48loW7b7nJFQVflFbLjYqGQgEKhAIACoHCAowot7cCjD8xM4BMN7VhgI?hl=en-GB&gl=GB&ceid=GB%3Aen':
+            return u
         raise ValueError(u)
     result = u
     try:
@@ -396,6 +397,8 @@ def main(force=False, date=utils.get_today()):
     headline_file_path = f'data/headlines_{date}.json'
 
     collect_new_headlines = False
+    if not os.path.isdir('data/tmp'):
+        os.makedirs('data/tmp')
 
     if force:
         if date != utils.get_today():
@@ -429,3 +432,5 @@ def main(force=False, date=utils.get_today()):
     articles_url = get_articles_url_from_coverages(coverages_by_category, date)
     # then put all together
     create_headline_file(date, file_path, out_path=headline_file_path)
+    print('Done')
+    utils.clean()
