@@ -2,7 +2,7 @@ import os
 import re
 import time
 import tqdm
-import psutil
+# import psutil
 import requests
 
 from typing import List
@@ -47,6 +47,7 @@ def with_webdriver(f):
 def get_webdriver(headless=True, browser='firefox'):
     if browser == 'chrome':
         options = ChromeOptions()
+        options.add_argument('--disable-dev-shm-usage')
         options.headless = headless
         driver = webdriver.Chrome(options=options)
     elif browser == 'firefox':
@@ -59,16 +60,16 @@ def get_webdriver(headless=True, browser='firefox'):
 def terminate_webdriver(driver):
     ## experiment to see if it works
     try:
-        if driver.service.process:
-            p = psutil.Process(driver.service.process.pid)
-            pids = p.children(recursive=True)
-        else:
-            pids = []
+        # if driver.service.process:
+        #     p = psutil.Process(driver.service.process.pid)
+        #     pids = p.children(recursive=True)
+        # else:
+        #     pids = []
         driver.close()
         driver.quit()
-        for p_one in pids:
-            print('terminating', p_one.pid)
-            p_one.terminate()
+        # for p_one in pids:
+        #     print('terminating', p_one.pid)
+        #     p_one.terminate()
     except Exception as e:
         print(e)
 
@@ -82,7 +83,7 @@ def select_stories_in_section_from_url(url, driver=None):
     if not url.startswith('https://news.google.com/topics/'):
         raise ValueError(url)
     if not driver:
-        driver = get_webdriver(headless=False)
+        driver = get_webdriver(headless=True)
         is_new_driver = True
         driver.get('http://networkcheck.kde.org/')
         time.sleep(1)
@@ -114,7 +115,9 @@ def select_stories_in_section(driver):
 def get_full_coverage_pages_by_category(driver):
     result = {}
 
-    driver.get("https://news.google.com/")
+    driver = get_webdriver()
+
+    driver.get("https://news.google.com/topstories?hl=en-GB&gl=GB&ceid=GB:en")
     more_headlines_el = driver.find_element_by_link_text('More Headlines')
     more_headlines_el.click()
     time.sleep(5)
@@ -135,6 +138,8 @@ def get_full_coverage_pages_by_category(driver):
         # go on the section
         c.click()
         sections_urls[section_name] = driver.current_url
+
+    terminate_webdriver(driver)
 
     for section_name, section_url in sections_urls.items():
         # this is awful but to have a clean DOM, use a different instance of driver for every section
@@ -422,9 +427,10 @@ def main(force=False, date=utils.get_today()):
     if collect_new_headlines:
         print('Collecting new headlines...')
         date = utils.get_today()
-        driver = get_webdriver(headless=False, browser='firefox')
+        # driver = get_webdriver(headless=True)
+        driver = None
         coverages_by_category, file_path = collect_coverages_by_category(driver)
-        terminate_webdriver(driver)
+        # terminate_webdriver(driver)
     else:
         coverages_by_category = utils.read_json(file_path)
     

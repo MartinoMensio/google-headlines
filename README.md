@@ -39,6 +39,15 @@ Search URLs of articles
 python -m google_headlines.google_search ../narrative-comparison/data/search_requests.json ../narrative-comparison/data/search_responses.json
 ```
 
+
+Docker
+```bash
+docker build . -t google-headlines
+#  -v `pwd`/google_headlines:/app/google_headlines
+docker run --name google-headlines --shm-size="2G" -v `pwd`/data:/app/data google-headlines
+docker start google-headlines
+```
+
 ## Know issues
 
 - GDPR consent Washington Post

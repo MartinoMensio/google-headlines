@@ -2,9 +2,10 @@ chromedriver-binary==80.0.3987.106.0
 geckodriver-autoinstaller
 selenium
 tqdm
-psutil
+# psutil
 typer
 requests
+schedule
 
-pylint
-autopep8
+# pylint
+# autopep8
