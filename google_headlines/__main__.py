@@ -28,7 +28,7 @@ def scrape(force: bool = False, date: str = utils.get_today()):
 def periodic():
     x=datetime.today()
     print(f'now: {x}')
-    schedule.every().day.at("16:26").do(scrape)
+    schedule.every().day.at("20:00").do(scrape)
 
     while True:
         schedule.run_pending()
