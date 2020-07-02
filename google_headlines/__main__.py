@@ -14,21 +14,21 @@ def clean():
 
 @app.command()
 def scrape(force: bool = False, date: str = utils.get_today()):
-    print('scraping')
+    print('scraping NOW')
     max_trials = 10
     while max_trials:
         try:
             scraper.main(force, date)
         except Exception as e:
-            raise e
             max_trials -= 1
+            print(f'******* TERMINATION EXCEPTION: retrials available {max_trials} ***')
 
 
 @app.command()
-def periodic():
+def periodic(time_str: str = '20:00'):
     x=datetime.today()
-    print(f'now: {x}')
-    schedule.every().day.at("20:00").do(scrape)
+    print(f'now: {x}, next run at {time_str}')
+    schedule.every().day.at(time_str).do(scrape)
 
     while True:
         schedule.run_pending()
