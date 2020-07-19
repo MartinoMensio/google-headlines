@@ -16,9 +16,11 @@ def clean():
 def scrape(force: bool = False, date: str = utils.get_today()):
     print('scraping NOW')
     max_trials = 10
-    while max_trials:
+    done = False
+    while max_trials > 0 and not done:
         try:
             scraper.main(force, date)
+            done = True
         except Exception as e:
             max_trials -= 1
             print(f'******* TERMINATION EXCEPTION: retrials available {max_trials} ***')

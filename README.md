@@ -42,10 +42,13 @@ python -m google_headlines.google_search ../narrative-comparison/data/search_req
 
 Docker
 ```bash
-docker build . -t google-headlines
+docker build . -t mm35626/google_headlines
 #  -v `pwd`/google_headlines:/app/google_headlines
-docker run --name google-headlines --shm-size="2G" -v `pwd`/data:/app/data google-headlines
+docker run -dit --restart always --name mm35626_google_headlines --shm-size="2G" -v `pwd`/data:/app/data mm35626/google_headlines
 docker start google-headlines
+
+
+scp -r kmi-web03:/data/user-data/mm35626/google-headlines/data ./data-imported
 ```
 
 ## Know issues
