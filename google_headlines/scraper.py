@@ -394,6 +394,23 @@ def index_update(url):
     index.append({'url': url, 'time': time})
     utils.save_json(index_path, index)
 
+def check_date(date):
+    """Checks whether the scrape was successful for date or not"""
+    # initial file
+    file_path = f'data/full_coverage_by_category_{date}.json'
+    # final file
+    headline_file_path = f'data/headlines_{date}.json'
+
+    if not os.path.isfile(file_path):
+        print('initial file not created')
+        return 'not_yet'
+    
+    if not os.path.isfile(headline_file):
+        print('started but not finished')
+        return 'error'
+
+    return 'ok'
+
 
 def main(force=False, date=utils.get_today()):
     # initial file
