@@ -25,6 +25,7 @@ def scrape(force: bool = False, date: str = utils.get_today()):
             max_trials -= 1
             print(f'******* TERMINATION EXCEPTION: retrials available {max_trials} ***')
 
+    raise ValueError('FINISHED: let\'s free some memory!')
 
 @app.command()
 def periodic(time_str: str = '16:00'):

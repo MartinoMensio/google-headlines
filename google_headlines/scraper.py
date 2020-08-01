@@ -405,7 +405,7 @@ def check_date(date):
         print('initial file not created')
         return 'not_yet'
     
-    if not os.path.isfile(headline_file):
+    if not os.path.isfile(headline_file_path):
         print('started but not finished')
         return 'error'
 
