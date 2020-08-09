@@ -202,11 +202,15 @@ def get_articles_url_from_coverage(coverage_url, **kwargs):
 
     groups_urls = {}
     driver.get(coverage_url)
-    # //main/div[@data-n-ham]/div[@data-n-ham]                        is a group
-    # //main/div[@data-n-ham]/div[@data-n-ham]/div[@data-n-ham]       is the title of the group
-    # //main/div[@data-n-ham]/div[@data-n-ham]/div/article            are the articles in the group
+    # //main/div[@data-n-ham]/div/div[@data-n-ham]                    the other groups
+    # //main/div[@data-n-ham]/div/div[@data-n-ham]/div[@data-n-ham]   the new group title
+    # //main/div[@data-n-ham]/div/div[@data-n-ham]/div/article        are the articles in the group
+    # //main/div[@data-n-ham]/div/div[@data-n-ham]/div/div/a          are the tweets in the From Twitter group
+    # //main/div[@data-n-ham]/div[@data-n-ham]                        is the all coverage group
     # //main/div[@data-n-ham]/article                                 are the articles in all coverage
-    groups: List[WebElement] = driver.find_elements_by_xpath('//main/div[@data-n-ham]/div[@data-n-ham]')
+
+    groups: List[WebElement] = driver.find_elements_by_xpath('//main/div[@data-n-ham]/div/div[@data-n-ham]') + \
+        driver.find_elements_by_xpath('//main/div[@data-n-ham]/div[@data-n-ham]')
     # print(groups)
     for group in groups:
         group_text = group.get_attribute('innerText').strip()
@@ -222,6 +226,8 @@ def get_articles_url_from_coverage(coverage_url, **kwargs):
                 # just skip the group
                 continue
             group_title = group_title_el.get_attribute('innerText').strip()
+            # if group_title == 'From Twitter': # This works but every time the tweets are different, plus we are not interested in tweets
+            #     articles = group.find_elements_by_css_selector('div div a')
             articles = group.find_elements_by_css_selector('div article a')
         links = [el.get_attribute('href') for el in articles]
         # remove duplicates

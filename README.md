@@ -45,7 +45,7 @@ Docker
 docker build . -t mm35626/google_headlines
 #  -v `pwd`/google_headlines:/app/google_headlines
 docker run -dit --restart always --name mm35626_google_headlines --shm-size="2G" -v `pwd`/data:/app/data mm35626/google_headlines
-docker start google-headlines
+docker start mm35626_google_headlines
 
 
 scp -r kmi-web03:/data/user-data/mm35626/google-headlines/data ./data-imported
@@ -54,4 +54,7 @@ scp -r kmi-web03:/data/user-data/mm35626/google-headlines/data ./data-imported
 ## Know issues
 
 - GDPR consent Washington Post
-- Chrome not closing all the times (Firefox gets stuck sometimes)
+- Some websites deny access from EU
+- no collection on 04/07/2020
+- no collection between 10/07/2020 and 13/07/2020
+- Between 29/07/2020 and 08/08/2020 only articles from "Full coverage"
