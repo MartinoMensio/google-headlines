@@ -48,7 +48,13 @@ docker run -dit --restart always --name mm35626_google_headlines --shm-size="2G"
 docker start mm35626_google_headlines
 
 
-scp -r kmi-web03:/data/user-data/mm35626/google-headlines/data ./data-imported
+# copy locally
+rsync -a kmi-web03:/data/user-data/mm35626/google-headlines/data/ ./data
+
+# start bash inside container
+sudo docker exec -it mm35626_google_headlines bash
+# collect specific day
+python3 -m google_headlines scrape --date 2020-08-25
 ```
 
 ## Know issues
