@@ -121,7 +121,6 @@ def get_full_coverage_pages_by_category(driver):
     more_headlines_el = driver.find_element_by_link_text('More Headlines')
     more_headlines_el.click()
     time.sleep(5)
-    index_update(driver.current_url)
     sections_el : List[WebElement] = driver.find_elements_by_xpath('//div[@data-scrollbar="true"]/div')
     print('found', len(sections_el), 'sections')
 
@@ -198,6 +197,15 @@ def get_articles_url_from_coverage_cached(coverage_url):
 def get_articles_url_from_coverage(coverage_url, **kwargs):
     driver = kwargs['driver']
     print('getting for url', coverage_url)
+
+    # everything is blocked here with a 500 error. These pages are not useful, just about sports matches without articles
+    # TODO analyse how to fix this without adding exclusion list
+    exclusion_list = [
+        'https://news.google.com/stories/CAAqgQEICiJ7Q0JJU1Zqb0pjM1J2Y25rdE16WXdTa2tLRVFpeGg0ekRrSUFNRVd5OHlpZjBzQk91RWpSUVlXdHBjM1JoYmlCMmN5QkZibWRzWVc1a0lNSzNJRWx1ZEdWeWJtRjBhVzl1WVd3Z1EzSnBZMnRsZENCRGIzVnVZMmxzS0FBUAE?hl=en-GB&gl=GB&ceid=GB%3Aen',
+        'https://news.google.com/stories/CAAqgQEICiJ7Q0JJU1Zqb0pjM1J2Y25rdE16WXdTa2tLRVFpNjJaX0trSUFNRVE2WlVKWUxmcVVhRWpSRmJtZHNZVzVrSUhaeklGQmhhMmx6ZEdGdUlNSzNJRWx1ZEdWeWJtRjBhVzl1WVd3Z1EzSnBZMnRsZENCRGIzVnVZMmxzS0FBUAE?hl=en-GB&gl=GB&ceid=GB%3Aen'
+    ]
+    if coverage_url in exclusion_list:
+        return {}
 
 
     groups_urls = {}
@@ -387,18 +395,6 @@ def create_headline_file(date, file_path, out_path):
     utils.save_json(out_path, result)
     return result
 
-def index_update(url):
-    index_path = 'data/index.json'
-    time = utils.get_time()
-    if os.path.isfile(index_path):
-        index = utils.read_json(index_path)
-    else: 
-        index = []
-    if any(el['url'] == url for el in index):
-        print('already in the index')
-        return
-    index.append({'url': url, 'time': time})
-    utils.save_json(index_path, index)
 
 def check_date(date):
     """Checks whether the scrape was successful for date or not"""
