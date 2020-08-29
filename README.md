@@ -49,7 +49,7 @@ docker start mm35626_google_headlines
 
 
 # copy locally
-rsync -a kmi-web03:/data/user-data/mm35626/google-headlines/data/ ./data
+rsync -a kmi-appsvr04:/data/user-data/mm35626/google-headlines/data/ ./data
 
 # start bash inside container
 sudo docker exec -it mm35626_google_headlines bash
