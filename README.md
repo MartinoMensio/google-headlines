@@ -42,9 +42,9 @@ python -m google_headlines.google_search ../narrative-comparison/data/search_req
 
 Docker
 ```bash
-docker build . -t mm35626/google_headlines
+sudo docker build . -t mm35626/google_headlines
 #  -v `pwd`/google_headlines:/app/google_headlines
-docker run -dit --restart always --name mm35626_google_headlines --shm-size="2G" -v `pwd`/data:/app/data mm35626/google_headlines
+sudo docker run -dit --restart always --name mm35626_google_headlines --shm-size="2G" -v `pwd`/data:/app/data mm35626/google_headlines
 docker start mm35626_google_headlines
 
 
