@@ -203,7 +203,9 @@ def get_articles_url_from_coverage(coverage_url, **kwargs):
     exclusion_list = [
         'https://news.google.com/stories/CAAqgQEICiJ7Q0JJU1Zqb0pjM1J2Y25rdE16WXdTa2tLRVFpeGg0ekRrSUFNRVd5OHlpZjBzQk91RWpSUVlXdHBjM1JoYmlCMmN5QkZibWRzWVc1a0lNSzNJRWx1ZEdWeWJtRjBhVzl1WVd3Z1EzSnBZMnRsZENCRGIzVnVZMmxzS0FBUAE?hl=en-GB&gl=GB&ceid=GB%3Aen',
         'https://news.google.com/stories/CAAqgQEICiJ7Q0JJU1Zqb0pjM1J2Y25rdE16WXdTa2tLRVFpNjJaX0trSUFNRVE2WlVKWUxmcVVhRWpSRmJtZHNZVzVrSUhaeklGQmhhMmx6ZEdGdUlNSzNJRWx1ZEdWeWJtRjBhVzl1WVd3Z1EzSnBZMnRsZENCRGIzVnVZMmxzS0FBUAE?hl=en-GB&gl=GB&ceid=GB%3Aen',
-        'https://news.google.com/stories/CAAqgQEICiJ7Q0JJU1Zqb0pjM1J2Y25rdE16WXdTa2tLRVFpNjJaX0trSUFNRVQzVjNxOUZSQnNHRWpSRmJtZHNZVzVrSUhaeklGQmhhMmx6ZEdGdUlNSzNJRWx1ZEdWeWJtRjBhVzl1WVd3Z1EzSnBZMnRsZENCRGIzVnVZMmxzS0FBUAE?hl=en-GB&gl=GB&ceid=GB%3Aen'
+        'https://news.google.com/stories/CAAqgQEICiJ7Q0JJU1Zqb0pjM1J2Y25rdE16WXdTa2tLRVFpNjJaX0trSUFNRVQzVjNxOUZSQnNHRWpSRmJtZHNZVzVrSUhaeklGQmhhMmx6ZEdGdUlNSzNJRWx1ZEdWeWJtRjBhVzl1WVd3Z1EzSnBZMnRsZENCRGIzVnVZMmxzS0FBUAE?hl=en-GB&gl=GB&ceid=GB%3Aen',
+        'https://news.google.com/stories/CAAqggEICiJ8Q0JJU1Z6b0pjM1J2Y25rdE16WXdTa29LRVFqdXNKclprSUFNRWNhbzJPdldPenE0RWpWRmJtZHNZVzVrSUhaeklFRjFjM1J5WVd4cFlTREN0eUJKYm5SbGNtNWhkR2x2Ym1Gc0lFTnlhV05yWlhRZ1EyOTFibU5wYkNnQVAB?hl=en-GB&gl=GB&ceid=GB%3Aen',
+        'https://news.google.com/stories/CAAqggEICiJ8Q0JJU1Z6b0pjM1J2Y25rdE16WXdTa29LRVFqdXNKclprSUFNRVc0V21ocVFCM1VoRWpWRmJtZHNZVzVrSUhaeklFRjFjM1J5WVd4cFlTREN0eUJKYm5SbGNtNWhkR2x2Ym1Gc0lFTnlhV05yWlhRZ1EyOTFibU5wYkNnQVAB?hl=en-GB&gl=GB&ceid=GB%3Aen'
     ]
     if coverage_url in exclusion_list:
         return {}
