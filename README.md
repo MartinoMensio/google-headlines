@@ -57,6 +57,19 @@ sudo docker exec -it mm35626_google_headlines bash
 python3 -m google_headlines scrape --date 2020-08-25
 ```
 
+### Dump management
+```bash
+mongodump -d narrative_comparison -c google_news -o dump
+tar -zcvf dump.tar.gz dump
+scp kmi-appsvr04:/data/user-data/mm35626/google-headlines/dump.tar.gz dump.tar.gz
+
+sudo docker run -dit --restart always --name mm35626_mongo -p 127.0.0.1:27017:27017 -v mm5626_mongo_volume:/data/db mongo
+
+tar -xvzf dump.tar.gz
+docker run --rm --name mm35626_mongoimporter -v `pwd`/dump:/dump --link=mm35626_mongo:mongo -it mongo bash
+mongorestore --host mongo -d narrative_comparison -c google_news dump/narrative_comparison/google_news.bson
+```
+
 ## Know issues
 
 - GDPR consent Washington Post
