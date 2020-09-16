@@ -88,6 +88,7 @@ def select_stories_in_section_from_url(url, driver=None):
         driver.get('http://networkcheck.kde.org/')
         time.sleep(1)
         driver.get(url)
+        check_cookies(driver)
     else:
         is_new_driver = False
     result = select_stories_in_section(driver)
@@ -111,6 +112,16 @@ def select_stories_in_section(driver):
     
     return links
 
+def check_cookies(driver):
+    """Agree with cookies if iframe comes out"""
+    # div data-cbh="consent.google.com"
+    # time.sleep(5)
+    if driver.find_elements_by_tag_name('iframe'):
+        driver.switch_to.frame(driver.find_element_by_tag_name('iframe'))
+        agree = driver.find_element_by_xpath("//span[text()='I agree']")
+        agree.click()
+        driver.switch_to_default_content()
+
 
 def get_full_coverage_pages_by_category(driver):
     result = {}
@@ -118,6 +129,7 @@ def get_full_coverage_pages_by_category(driver):
     driver = get_webdriver()
 
     driver.get("https://news.google.com/topstories?hl=en-GB&gl=GB&ceid=GB:en")
+    check_cookies(driver)
     more_headlines_el = driver.find_element_by_link_text('More Headlines')
     more_headlines_el.click()
     time.sleep(5)
@@ -213,6 +225,7 @@ def get_articles_url_from_coverage(coverage_url, **kwargs):
 
     groups_urls = {}
     driver.get(coverage_url)
+    check_cookies(driver)
     # //main/div[@data-n-ham]/div/div[@data-n-ham]                    the other groups
     # //main/div[@data-n-ham]/div/div[@data-n-ham]/div[@data-n-ham]   the new group title
     # //main/div[@data-n-ham]/div/div[@data-n-ham]/div/article        are the articles in the group

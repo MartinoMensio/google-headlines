@@ -77,3 +77,4 @@ mongorestore --host mongo -d narrative_comparison -c google_news dump/narrative_
 - no collection on 04/07/2020
 - no collection between 10/07/2020 and 13/07/2020
 - Between 29/07/2020 and 08/08/2020 only articles from "Full coverage"
+- No collection on 14/09/2020 and 15/09/2020 because of cookies policy popup

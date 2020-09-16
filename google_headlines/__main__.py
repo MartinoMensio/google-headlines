@@ -3,6 +3,7 @@ import datetime
 from threading import Timer
 import schedule
 import time
+import traceback
 
 from . import scraper, utils
 
@@ -23,6 +24,7 @@ def scrape(force: bool = False, date: str = utils.get_today()):
             done = True
         except Exception as e:
             max_trials -= 1
+            traceback.print_exc()
             print(f'******* TERMINATION EXCEPTION: retrials available {max_trials} ***')
 
     raise ValueError('FINISHED: let\'s free some memory!')
