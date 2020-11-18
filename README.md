@@ -77,3 +77,5 @@ mongorestore --host mongo -d narrative_comparison -c google_news dump/narrative_
 - no collection between 10/07/2020 and 13/07/2020
 - Between 29/07/2020 and 08/08/2020 only articles from "Full coverage"
 - No collection on 14/09/2020 and 15/09/2020 because of cookies policy popup
+- No collection between 04/11/2020 and 08/11/2020 because of server restart, docker not enabled to restart
+
